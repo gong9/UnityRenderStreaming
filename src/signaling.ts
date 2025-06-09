@@ -1,6 +1,10 @@
 import * as express from 'express';
 import * as handler from'./class/httphandler';
 
+/**
+ * @file： webrtc core， just for http request
+ */
+
 const router: express.Router = express.Router();
 router.use(handler.checkSessionId);
 router.get('/connection', handler.getConnection);
