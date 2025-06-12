@@ -31,7 +31,7 @@ export class RenderStreaming {
           keyfile: option.keyfile,
           certfile: option.certfile,
           type: option.type == undefined ? 'websocket' : option.type,
-          mode: option.mode,
+          mode: 'private',
           logging: option.logging,
         };
       }
@@ -58,7 +58,6 @@ export class RenderStreaming {
         const { port } = this.server.address() as AddressInfo;
         const addresses = this.getIPAddress();
         for (const address of addresses) {
-          
           console.log(`https://${address}:${port}`);
         }
       });
@@ -71,6 +70,7 @@ export class RenderStreaming {
         }
       });
     }
+
     if (this.options.type == 'http') {
       console.log(`Use http polling for signaling server.`);
     }
@@ -79,6 +79,9 @@ export class RenderStreaming {
       console.log(`Changing signaling type to websocket.`);
       this.options.type = 'websocket';
     }
+
+
+    //if use websocket，start websocket signaling server
     if (this.options.type == 'websocket') {
       console.log(`Use websocket for signaling server ws://${this.getIPAddress()[0]}`);
 

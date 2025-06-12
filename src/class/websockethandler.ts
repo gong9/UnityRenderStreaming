@@ -4,14 +4,13 @@ import Candidate from './candidate';
 
 let isPrivate: boolean;
 
-// [{sessonId:[connectionId,...]}]
-const clients: Map<WebSocket, Set<string>> = new Map<WebSocket, Set<string>>();
 
-// [{connectionId:[sessionId1, sessionId2]}]
+const clients: Map<WebSocket, Set<string>> = new Map<WebSocket, Set<string>>();
 const connectionPair: Map<string, [WebSocket, WebSocket]> = new Map<string, [WebSocket, WebSocket]>();
 
 function getOrCreateConnectionIds(session: WebSocket): Set<string> {
   let connectionIds = null;
+
   if (!clients.has(session)) {
     connectionIds = new Set<string>();
     clients.set(session, connectionIds);
@@ -21,7 +20,7 @@ function getOrCreateConnectionIds(session: WebSocket): Set<string> {
 }
 
 function reset(mode: string): void {
-  isPrivate = mode == "private";
+  isPrivate = mode != "private";
 }
 
 function add(ws: WebSocket): void {
@@ -30,6 +29,7 @@ function add(ws: WebSocket): void {
 
 function remove(ws: WebSocket): void {
   const connectionIds = clients.get(ws);
+
   connectionIds.forEach(connectionId => {
     const pair = connectionPair.get(connectionId);
     if (pair) {
@@ -44,8 +44,15 @@ function remove(ws: WebSocket): void {
   clients.delete(ws);
 }
 
+/**
+ * handle connect 
+ * @param ws 
+ * @param connectionId 
+ * @returns 
+ */
 function onConnect(ws: WebSocket, connectionId: string): void {
   let polite = true;
+
   if (isPrivate) {
     if (connectionPair.has(connectionId)) {
       const pair = connectionPair.get(connectionId);
@@ -64,6 +71,7 @@ function onConnect(ws: WebSocket, connectionId: string): void {
 
   const connectionIds = getOrCreateConnectionIds(ws);
   connectionIds.add(connectionId);
+
   ws.send(JSON.stringify({ type: "connect", connectionId: connectionId, polite: polite }));
 }
 
@@ -82,6 +90,12 @@ function onDisconnect(ws: WebSocket, connectionId: string): void {
   ws.send(JSON.stringify({ type: "disconnect", connectionId: connectionId }));
 }
 
+/**
+ * handle offer event
+ * @param ws 
+ * @param message 
+ * @returns 
+ */
 function onOffer(ws: WebSocket, message: any): void {
   const connectionId = message.connectionId as string;
   const newOffer = new Offer(message.sdp, Date.now(), false);
@@ -93,18 +107,28 @@ function onOffer(ws: WebSocket, message: any): void {
       if (otherSessionWs) {
         newOffer.polite = true;
         otherSessionWs.send(JSON.stringify({ from: connectionId, to: "", type: "offer", data: newOffer }));
+      }else{
+        // 找到其他没有配对的
+        clients.forEach((_v, k) => {
+          if (k == ws) {
+            return;
+          }
+          if(_v.size==1){
+            connectionPair.set(connectionId, [ws, k]);
+          }
+        });
       }
     }
-    return;
-  }
+  }else{
+    connectionPair.set(connectionId, [ws, null]);
 
-  connectionPair.set(connectionId, [ws, null]);
-  clients.forEach((_v, k) => {
-    if (k == ws) {
-      return;
-    }
-    k.send(JSON.stringify({ from: connectionId, to: "", type: "offer", data: newOffer }));
-  });
+    clients.forEach((_v, k) => {
+      if (k == ws) {
+        return;
+      }
+      k.send(JSON.stringify({ from: connectionId, to: "", type: "offer", data: newOffer }));
+    });
+  }
 }
 
 function onAnswer(ws: WebSocket, message: any): void {
@@ -131,23 +155,24 @@ function onCandidate(ws: WebSocket, message: any): void {
   const connectionId = message.connectionId;
   const candidate = new Candidate(message.candidate, message.sdpMLineIndex, message.sdpMid, Date.now());
 
+
   if (isPrivate) {
     if (connectionPair.has(connectionId)) {
       const pair = connectionPair.get(connectionId);
       const otherSessionWs = pair[0] == ws ? pair[1] : pair[0];
+
       if (otherSessionWs) {
         otherSessionWs.send(JSON.stringify({ from: connectionId, to: "", type: "candidate", data: candidate }));
       }
     }
-    return;
+  }else{
+    clients.forEach((_v, k) => {
+      if (k === ws) {
+        return;
+      }
+      k.send(JSON.stringify({ from: connectionId, to: "", type: "candidate", data: candidate }));
+    });
   }
-
-  clients.forEach((_v, k) => {
-    if (k === ws) {
-      return;
-    }
-    k.send(JSON.stringify({ from: connectionId, to: "", type: "candidate", data: candidate }));
-  });
 }
 
 export { reset, add, remove, onConnect, onDisconnect, onOffer, onAnswer, onCandidate };

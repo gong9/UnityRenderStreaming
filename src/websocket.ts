@@ -12,7 +12,6 @@ export default class WSSignaling {
     handler.reset(mode);
 
     this.wss.on('connection', (ws: WebSocket) => {
-
       handler.add(ws);
 
       ws.onclose = (): void => {
@@ -20,12 +19,10 @@ export default class WSSignaling {
       };
 
       ws.onmessage = (event: MessageEvent): void => {
-
         const msg = JSON.parse(event.data);
         if (!msg || !this) {
           return;
         }
-
         switch (msg.type) {
           case "connect":
             handler.onConnect(ws, msg.connectionId);
