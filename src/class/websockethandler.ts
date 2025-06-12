@@ -108,7 +108,6 @@ function onOffer(ws: WebSocket, message: any): void {
         newOffer.polite = true;
         otherSessionWs.send(JSON.stringify({ from: connectionId, to: "", type: "offer", data: newOffer }));
       }else{
-        // 找到其他没有配对的
         clients.forEach((_v, k) => {
           if (k == ws) {
             return;
@@ -154,7 +153,6 @@ function onAnswer(ws: WebSocket, message: any): void {
 function onCandidate(ws: WebSocket, message: any): void {
   const connectionId = message.connectionId;
   const candidate = new Candidate(message.candidate, message.sdpMLineIndex, message.sdpMid, Date.now());
-
 
   if (isPrivate) {
     if (connectionPair.has(connectionId)) {
