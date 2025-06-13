@@ -193,9 +193,13 @@ function onCandidate(ws: WebSocket, message: any): void {
       otherSessionWs.send(info);
     } else {
       const clientsArray = Array.from(getNotPairUnityClients().values());
-      clientsArray.forEach(client => {
-        client.send(info);
-      });
+      if(clientsArray.length > 0){
+        clientsArray.forEach(client => {
+          client.send(info);
+        });
+      }else{
+        ws.send(JSON.stringify({ type: "error", message: `目前没有可用的渲染服务` }));
+      }
     }
   }
 }
