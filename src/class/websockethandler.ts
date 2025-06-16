@@ -1,6 +1,7 @@
 import Offer from './offer';
 import Answer from './answer';
 import Candidate from './candidate';
+import clientManagement from './clientManagement';
 
 const clients: Map<WebSocket, Set<string>> = new Map<WebSocket, Set<string>>();
 const browserClients: Set<WebSocket> = new Set<WebSocket>();
@@ -79,28 +80,40 @@ function getNotPairUnityClients(): Set<WebSocket> {
  * @returns 
  */
 function onConnect(ws: WebSocket, connectionId: string): void {
-  let polite = true;
   browserClients.add(ws);
 
-  if (connectionPair.has(connectionId)) {
-    const pair = connectionPair.get(connectionId);
-
-    if (pair[0] != null && pair[1] != null) {
-      ws.send(JSON.stringify({ type: "error", message: `${connectionId}: This connection id is already used.` }));
-      return;
-    }
-    else if (pair[0] != null) {
-      connectionPair.set(connectionId, [pair[0], ws]);
-    }
-  } else {
-    connectionPair.set(connectionId, [ws, null]);
-    polite = false;
+  if(
+    getNotPairUnityClients().size > 0||clientManagement.isUnityPending
+  ){
+    ws.send(JSON.stringify({ type: "error", message: `unity 服务未启动` }));
+    return;
   }
 
-  const connectionIds = getOrCreateConnectionIds(ws);
-  connectionIds.add(connectionId);
+  clientManagement.addClient(ws).then(() => {
+    let polite = true;
 
-  ws.send(JSON.stringify({ type: "connect", connectionId: connectionId, polite: polite }));
+    if (connectionPair.has(connectionId)) {
+      const pair = connectionPair.get(connectionId);
+
+      if (pair[0] != null && pair[1] != null) {
+        ws.send(JSON.stringify({ type: "error", message: `${connectionId}: This connection id is already used.` }));
+        return;
+      }
+      else if (pair[0] != null) {
+        connectionPair.set(connectionId, [pair[0], ws]);
+      }
+    } else {
+      connectionPair.set(connectionId, [ws, null]);
+      polite = false;
+    }
+
+    const connectionIds = getOrCreateConnectionIds(ws);
+    connectionIds.add(connectionId);
+
+    ws.send(JSON.stringify({ type: "connect", connectionId: connectionId, polite: polite }));
+  }).catch((error) => {
+    ws.send(JSON.stringify({ type: "connect", message: `连接失败: unity 服务未启动${error}` }));
+  });
 }
 
 /**
@@ -147,6 +160,7 @@ function onDisconnect(ws: WebSocket, connectionId: string): void {
     }
   }
   connectionPair.delete(connectionId);
+  clientManagement.removeClient(ws);
   ws.send(JSON.stringify({ type: "disconnect", connectionId: connectionId }));
 }
 

@@ -14,7 +14,6 @@ export default class WSSignaling {
     this.wss.on('connection', (ws: WebSocket) => {
       handler.add(ws);
 
-
       ws.onclose = (): void => {
         handler.remove(ws);
       };
