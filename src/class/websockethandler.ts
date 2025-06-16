@@ -2,6 +2,7 @@ import Offer from './offer';
 import Answer from './answer';
 import Candidate from './candidate';
 import clientManagement from './clientManagement';
+import { renderStreamingConfig } from '../config';
 
 const clients: Map<WebSocket, Set<string>> = new Map<WebSocket, Set<string>>();
 const browserClients: Set<WebSocket> = new Set<WebSocket>();
@@ -80,11 +81,14 @@ function getNotPairUnityClients(): Set<WebSocket> {
  * @returns 
  */
 function onConnect(ws: WebSocket, connectionId: string): void {
+  if (renderStreamingConfig.numberOfStreams === getUnityClients().size && getNotPairUnityClients().size === 0) {
+    ws.send(JSON.stringify({ type: "error", message: `当前连接数已达上限` }));
+    return;
+  }
+
   browserClients.add(ws);
 
-  if(
-    getNotPairUnityClients().size > 0||clientManagement.isUnityPending
-  ){
+  if( getNotPairUnityClients().size > 0||clientManagement.isUnityPending){
     ws.send(JSON.stringify({ type: "error", message: `unity 服务未启动` }));
     return;
   }
